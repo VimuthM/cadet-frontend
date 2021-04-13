@@ -1,5 +1,5 @@
-import { is_list, is_pair } from './list';
-import { Data, EmptyList, List, Pair } from './ListVisualizerTypes';
+import { is_array, is_list, is_pair } from './list';
+import { Array, Data, EmptyList, List, Pair } from './ListVisualizerTypes';
 
 /**
  *  Returns data in text form, fitted into the box.
@@ -28,23 +28,36 @@ export function toText(data: Data, full: boolean = false): string | undefined {
 /**
  * Find the height of a drawing (in number of "rows" of pairs)
  */
-export function findDataHeight(data: Data): number {
+ export function findDataHeight(data: Data): number {
   // Store pairs/arrays that were traversed previously so as to not double-count their height.
   const existing: Data[] = [];
 
   function helper(data: Data): number {
-    if ((!isPair(data) && !isFunction(data)) || isEmptyList(data)) {
+    if ((!isPair(data) && !isFunction(data) && !isArray(data)) || isEmptyList(data)) {
       return 0;
     } else {
       let leftHeight;
       let rightHeight;
-      if (existing.includes(data[0]) || (!isPair(data[0]) && !isFunction(data[0]))) {
+      
+      if (isArray(data) && !isPair(data)) {
+        // if (existing.includes(data[0])) {
+        //   return 0;
+        // }
+        let height = 0;
+        for (let i = 0; i < data.length; i++) {
+          height = Math.max(helper(data[i]), height);
+        }
+        existing.push(data);
+
+        return height + 1;
+      }
+      if (existing.includes(data[0]) || (!isPair(data[0]) && !isFunction(data[0]) && !isArray(data[0]))) {
         leftHeight = 0;
       } else {
         existing.push(data[0]);
         leftHeight = helper(data[0]);
       }
-      if (existing.includes(data[1]) || (!isPair(data[1]) && !isFunction(data[1]))) {
+      if (existing.includes(data[1]) || (!isPair(data[1]) && !isFunction(data[1]) && !isArray(data[1]))) {
         rightHeight = 0;
       } else {
         existing.push(data[1]);
@@ -64,18 +77,31 @@ export function findDataWidth(data: Data): number {
   const existing: Data[] = [];
 
   function helper(data: Data): number {
-    if ((!isPair(data) && !isFunction(data)) || isEmptyList(data)) {
+    if ((!isPair(data) && !isFunction(data) && !isArray(data)) || isEmptyList(data)) {
       return 0;
     } else {
       let leftWidth: number;
       let rightWidth: number;
-      if (existing.includes(data[0]) || (!isPair(data[0]) && !isFunction(data[0]))) {
+      if (isArray(data) && !isPair(data)) {
+        // if (existing.includes(data[0])) {
+        //   return 0;
+        // }
+        existing.push(data);
+        return data.length;
+      }
+      if (
+        existing.includes(data[0]) ||
+        (!isPair(data[0]) && !isFunction(data[0]) && !isArray(data[0]))
+      ) {
         leftWidth = 0;
       } else {
         existing.push(data[0]);
         leftWidth = helper(data[0]);
       }
-      if (existing.includes(data[1]) || (!isPair(data[1]) && !isFunction(data[1]))) {
+      if (
+        existing.includes(data[1]) ||
+        (!isPair(data[1]) && !isFunction(data[1]) && !isArray(data[1]))
+      ) {
         rightWidth = 0;
       } else {
         existing.push(data[1]);
@@ -94,6 +120,10 @@ export function isFunction(data: Data): data is Function {
 
 export function isPair(data: Data): data is Pair {
   return is_pair(data);
+}
+
+export function isArray(data: Data): data is Array {
+  return is_array(data);
 }
 
 export function isList(data: Data): data is List {

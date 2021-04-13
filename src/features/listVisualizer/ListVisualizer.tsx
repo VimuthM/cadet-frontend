@@ -1,9 +1,9 @@
 import { Layer, Stage, Text } from 'react-konva';
 
 import { Data, Step } from './ListVisualizerTypes';
-import { findDataHeight, findDataWidth, isFunction, isPair, toText } from './ListVisualizerUtils';
+import { findDataHeight, findDataWidth, isArray, isFunction, isPair, toText } from './ListVisualizerUtils';
 import { Tree } from './tree/Tree';
-import { DataTreeNode, FunctionTreeNode } from './tree/TreeNode';
+import { ArrayTreeNode, DataTreeNode, FunctionTreeNode } from './tree/TreeNode';
 
 /**
  * The list visualizer class.
@@ -81,6 +81,10 @@ export default class ListVisualizer {
 
     if (isPair(xs)) {
       layer = Tree.fromSourceTree(xs).draw(500, 50);
+    } else if (isArray(xs)) {
+      const node = new ArrayTreeNode(0);
+      node.elements = xs;
+      layer = <Layer>{node.createDrawable(50, 50, 50, 50)}</Layer>;
     } else if (isFunction(xs)) {
       layer = <Layer>{new FunctionTreeNode(0).createDrawable(50, 50, 50, 50)}</Layer>;
     } else {

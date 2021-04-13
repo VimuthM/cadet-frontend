@@ -1,8 +1,9 @@
 import { Layer, Line } from 'react-konva';
 
 import { Config } from '../Config';
-import { Data, Pair } from '../ListVisualizerTypes';
-import { head, isFunction, isPair, tail } from '../ListVisualizerUtils';
+import { Array, Data, Pair } from '../ListVisualizerTypes';
+import { head, isArray, isFunction, isPair, tail } from '../ListVisualizerUtils';
+import { ArrayTreeNode } from './ArrayTreeNode';
 import { DataTreeNode } from './DataTreeNode';
 import { PairTreeNode } from './PairTreeNode';
 import { DrawableTreeNode, FunctionTreeNode, TreeNode } from './TreeNode';
@@ -64,6 +65,8 @@ export class Tree {
       } else {
         node.left = isPair(headNode)
           ? constructTree(headNode)
+          : isArray(headNode)
+          ? constructArray(headNode)
           : isFunction(headNode)
           ? constructFunction(headNode)
           : constructData(headNode);
@@ -75,11 +78,47 @@ export class Tree {
       } else {
         node.right = isPair(tailNode)
           ? constructTree(tailNode)
+          : isArray(tailNode)
+          ? constructArray(tailNode)
           : isFunction(tailNode)
           ? constructFunction(tailNode)
           : constructData(tailNode);
       }
 
+      return node;
+    }
+
+    /**
+     * Returns a node representing the given array.
+     * Also memoizes the array object, for the case where the
+     * function appears multiple times in the data structure.
+     * @param data The array to construct a node for.
+     */
+    function constructArray(data: Array) {
+      const node = new ArrayTreeNode(nodeCount);
+      const elements: any[] = [];
+
+      // memoise current function
+      visitedStructures[nodeCount] = data;
+      treeNodes[nodeCount] = node;
+      nodeCount++;
+
+      for (let i = 0;  i < data.length; i++) {
+        if (visitedStructures.indexOf(data[i]) > -1) {
+          // tree already built
+          elements[i] = visitedStructures.indexOf(data[i]);
+        } else {
+          elements[i] = isPair(data[i])
+            ? constructTree(data[i])
+            : isArray(data[i])
+            ? constructArray(data[i])
+            : isFunction(data[i])
+            ? constructFunction(data[i])
+            : constructData(data[i]);
+        }
+      }
+
+      node.elements = elements;
       return node;
     }
 
@@ -109,7 +148,7 @@ export class Tree {
       return new DataTreeNode(data);
     }
 
-    const visitedStructures: (Function | Pair)[] = []; // detects cycles
+    const visitedStructures: (Function | Pair | Array)[] = []; // detects cycles
     const treeNodes: DrawableTreeNode[] = [];
     const rootNode = constructTree(tree);
 
@@ -161,13 +200,34 @@ class TreeDrawer {
    * @param parentX The x position of the parent. If there is no parent, it is the same as x.
    * @param parentY The y position of the parent. If there is no parent, it is the same as y.
    */
-  drawNode(node: TreeNode, x: number, y: number, parentX: number, parentY: number) {
+   drawNode(node: TreeNode, x: number, y: number, parentX: number, parentY: number) {
     if (!(node instanceof DrawableTreeNode)) return;
 
     // draws the content
     if (node instanceof FunctionTreeNode) {
       const drawable = node.createDrawable(x, y, parentX, parentY);
       this.drawables.push(drawable);
+
+      // update left extreme of the tree
+      this.minLeft = Math.min(this.minLeft, x);
+    } else if (node instanceof ArrayTreeNode) {
+      const drawable = node.createDrawable(x, y, parentX, parentY);
+      this.drawables.push(drawable);
+      
+
+      for (let i = 0;  i < node.length; i++) {
+        if (node.elements != null) {
+          if (node.elements[i] instanceof TreeNode) {
+            //fix
+            this.drawChild(node.elements[i], x, y, i);
+          } else {
+            // if its child is part of a cycle and it's been drawn, link back to that node instead
+            //fix
+            const drawnNode = this.tree.getNodeById(node.elements[i]);
+            this.backwardLeftEdge(x, y, drawnNode.drawableX ?? 0, drawnNode.drawableY ?? 0);
+          }
+        }
+      }
 
       // update left extreme of the tree
       this.minLeft = Math.min(this.minLeft, x);
@@ -198,6 +258,22 @@ class TreeDrawer {
       // update left extreme of the tree
       this.minLeft = Math.min(this.minLeft, x);
     }
+  }
+
+  drawChild(node: TreeNode, parentX: number, parentY: number, shift: number) {
+    let count: number;
+    // FIX
+    // checks if it has a right child, how far it extends to the right direction
+    if (node.right instanceof DrawableTreeNode) {
+      count = 1 + this.shiftScaleCount(node.right) + shift;
+    } else {
+      count = 0;
+    }
+    // shifts left accordingly
+    const x = parentX + Config.DistanceX + count * Config.DistanceX;
+    const y = parentY + Config.DistanceY;
+
+    this.drawNode(node, x, y, parentX, parentY);
   }
 
   /**
@@ -247,15 +323,17 @@ class TreeDrawer {
   /**
    * Returns the distance necessary for the shift of each node, calculated recursively.
    */
-  shiftScaleCount(node: TreeNode) {
+   shiftScaleCount(node: TreeNode) {
     let count = 0;
     // if there is something on the left, it needs to be shifted to the right for 1 + how far that right child shifts
     if (node.left instanceof DrawableTreeNode) {
-      count = count + 1 + this.shiftScaleCount(node.left);
+      const add = node.left instanceof ArrayTreeNode ? node.left.length : 1;
+      count = count + add + this.shiftScaleCount(node.left);
     }
     // if there is something on the right, it needs to be shifted to the left for 1 + how far that left child shifts
     if (node.right instanceof DrawableTreeNode) {
-      count = count + 1 + this.shiftScaleCount(node.right);
+      const add = node.right instanceof ArrayTreeNode ? node.right.length : 1;
+      count = count + add + this.shiftScaleCount(node.right);
     }
     return count;
   }

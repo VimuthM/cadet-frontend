@@ -24,6 +24,12 @@ export function pair(x, xs) {
   return [x, xs];
 }
 
+// is_array returns true if the arg is an array
+// LOW-LEVEL FUNCTION, NOT SOURCE
+export function is_array(x) {
+  return array_test(x);
+}
+
 // is_pair returns true iff arg is a two-element array
 // LOW-LEVEL FUNCTION, NOT SOURCE
 export function is_pair(x) {
